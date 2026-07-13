@@ -1,0 +1,104 @@
+paths:
+  data_root: data/raw/logs
+  output_dir: outputs/etfa_campaign
+
+features:
+  sysdig_window_seconds: 4.0
+
+  # Feature-view ablations to run. The pipeline trains/evaluates all views.
+  # runtime            = sysdig/syscall features only (closest to ABB zero-day paper)
+  # runtime_process    = sysdig + TEP signals
+  # runtime_controller = sysdig + controller commands
+  # fused              = sysdig + TEP signals + controller commands
+  feature_views:
+    - runtime
+    - runtime_process
+    - runtime_controller
+    - fused
+
+  # Extract all views once; model training selects feature prefixes per view.
+  include_runtime_features: true
+  include_process_features: true
+  include_controller_features: true
+  include_alarm_features: false
+
+  # Process/controller feature construction.
+  process_locf: true
+  process_deltas: true
+  process_update_counts: true
+  controller_locf: true
+  controller_deltas: true
+
+  # Dimensionality controls for public reproducibility.
+  # Use null to keep all generated numeric features.
+  max_process_features_by_variance: null
+  max_controller_features_by_variance: null
+
+  preprocessing:
+    remove_zero_variance: true
+    log1p_runtime_counts: true
+    standardize: true
+
+scenario:
+  # Used only if folder names do not contain explicit lamXX values.
+  profile_to_severity:
+    none: 0.0
+    light: 0.25
+    moderate: 0.50
+    heavy: 1.0
+
+splits:
+  # The current campaign has three phase1 clean benign runs. The pipeline uses
+  # leave-one-clean-benign-out validation by default:
+  # train 1+2 validate 3, train 1+3 validate 2, train 2+3 validate 1.
+  strategy: leave_one_clean_benign_out
+  random_seed: 42
+
+calibration:
+  # High quantile of benign validation scores. 0.995 means the operating point
+  # allows roughly the top 0.5% of benign validation windows above threshold.
+  target_fpr_quantile: 0.995
+
+models:
+  random_state: 42
+  include_autoencoder: true
+  pca:
+    n_components: 0.95
+  gmm:
+    n_components: 2
+    covariance_type: diag
+  ocsvm:
+    kernel: rbf
+    nu: 0.05
+    gamma: scale
+  isolation_forest:
+    n_estimators: 300
+    contamination: auto
+  autoencoder:
+    hidden_layer_sizes: [64, 16, 64]
+    max_iter: 300
+
+metrics:
+  primary:
+    - false_alarm_rate_percent
+    - event_recall
+    - median_ttd_s
+  secondary:
+    - false_alarms_per_hour
+    - predicted_alarm_rate_percent
+    - attack_window_recall_percent
+    - auroc
+    - auprc
+    - precision
+    - recall
+    - f1
+    - mcc
+
+figures:
+  # Creates one timeline plot per run and feature view with all model scores.
+  make_all_timelines: true
+  # Set to a number for debugging, e.g. 10. Use null for all.
+  max_timeline_runs: null
+  # Heatmaps pool attack durations by default. Separate by-duration plots can be
+  # added later if useful for the final paper.
+  pooled_attack_heatmaps: true

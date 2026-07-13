@@ -1,0 +1,2 @@
+{"time": 1777032040000000000, "measurement": "events", "fields": {"title": "attack_start"}}
+{"time": 1777032040000000000, "timeEnd": 1777032060000000000, "measurement": "events", "fields": {"title": "attack"}}
