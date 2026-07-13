@@ -1,0 +1,22 @@
+# Python
+*.pyc
+__pycache__/
+**/__pycache__/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local editor settings
+.vscode/
+
+# Python virtual environment
+.venv/
+
+# Runtime logs and generated outputs
+logs
+
+# Host-mounted UNIX sockets directory (created at runtime)
+sockets/
+
