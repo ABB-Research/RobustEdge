@@ -1,0 +1,125 @@
+-- Chisel description
+description = "counts how many times the specified system call has been called"
+short_description = "syscall count"
+category = "misc"
+
+-- Chisel argument list
+args =
+{
+	{
+		name = "window",
+		description = "window size",
+		argtype = "int",
+		optional = true
+	}
+}
+
+-- Argument notification callback
+function on_set_arg(name, val)
+	interval_sec = val
+	return true
+end
+
+-- Initialization callback
+function on_init()
+	-- Request the fields that we need
+	ftype = chisel.request_field("evt.type")
+	fname = chisel.request_field("container.name")
+
+    -- set filter, only enter events from container to host
+    chisel.set_filter("evt.dir = >")
+
+    -- set interval callback
+    chisel.set_interval_s(interval_sec)
+
+	return true
+end
+
+-- global variables
+count = {}
+
+-- default interval length = 1 second
+interval_sec = 1
+
+-- Event parsing callback
+function on_event()
+
+    event_cname = evt.field(fname)
+    if event_cname ~= nil then
+
+        if count[event_cname] == nil then
+            count[event_cname] = {}
+        end
+
+        evt_type = evt.field(ftype)
+        if count[event_cname][evt_type] == nil then
+            count[event_cname][evt_type] = 0
+        end
+
+        -- increase counter
+        count[event_cname][evt_type] = count[event_cname][evt_type] + 1
+
+    end
+
+	return false
+end
+
+-- start of capture callback
+function on_capture_start()
+	islive = sysdig.is_live()
+	if islive then
+		chisel.set_interval_s(interval_sec)
+	end
+
+	return true
+end
+
+-- End of capture callback
+function on_capture_end()
+
+	return true
+end
+
+-- end of interval callback
+function on_interval(ts_s, ts_ns, delta)
+
+    -- this is workaround for https://github.com/draios/sysdig/issues/1602
+    -- we ignore all callbacks with delta that are negative or much smaller than the desired interval
+    if (delta < 900000000*interval_sec) then
+        return true
+    end
+
+    i = 0
+
+    io.write("{\"timestamp\": " .. ts_s .. "." .. ts_ns .. ", \"delta\": " .. delta/1e9 .. ", \"containers\": [")
+
+    for cname, value in pairs(count) do
+
+        n = 0
+
+        if (i>0) then
+            io.write(", ")
+        end
+
+        io.write("{\"name\": \"" .. cname .. "\", \"stats\": {")
+
+        for etype, counter in pairs(value) do
+            if (n>0) then
+                io.write(", ")
+            end
+            io.write("\"" .. etype .. "\": " .. value[etype])
+            n = n + 1
+        end
+
+        io.write("}}")
+
+        i = i + 1
+    end
+
+    io.write("]}\n")
+    io.flush()
+
+    -- clearing all counters
+    count = {}
+    return true
+end

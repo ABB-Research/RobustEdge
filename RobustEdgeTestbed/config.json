@@ -1,0 +1,194 @@
+{
+  "influxdb": {
+    "host": "localhost",
+    "port": 8086,
+    "database": "appdb"
+  },
+  "attack_agent": {
+    "measurement": "attack_records",
+    "tag": "host",
+    "dataPointsPerSec": 1000,
+    "burstDuration": 10,
+    "burstPps": 1000,
+    "burstValue": 0,
+    "timeout": 3
+  },
+  "sysdig": {
+    "windowSize": 4,
+    "containers": ["influxdb"]
+  },
+  "campaign": {
+    "compose_file": "docker-compose.yml",
+    "output_root": "./output",
+    "test_duration": 180,
+    "iterations": 1,
+    "perturbations": ["none", "moderate"],
+    "perturbation_profiles": [
+      {"name": "none",        "family": "none", "lambda": 0.0},
+      {"name": "P1_lam0.25",  "family": "P1",   "lambda": 0.25},
+      {"name": "P1_lam0.50",  "family": "P1",   "lambda": 0.50},
+      {"name": "P1_lam0.75",  "family": "P1",   "lambda": 0.75},
+      {"name": "P1_lam1.00",  "family": "P1",   "lambda": 1.00},
+      {"name": "P2_lam0.25",  "family": "P2",   "lambda": 0.25},
+      {"name": "P2_lam0.50",  "family": "P2",   "lambda": 0.50},
+      {"name": "P2_lam0.75",  "family": "P2",   "lambda": 0.75},
+      {"name": "P2_lam1.00",  "family": "P2",   "lambda": 1.00},
+      {"name": "P3_lam0.25",  "family": "P3",   "lambda": 0.25},
+      {"name": "P3_lam0.50",  "family": "P3",   "lambda": 0.50},
+      {"name": "P3_lam0.75",  "family": "P3",   "lambda": 0.75},
+      {"name": "P3_lam1.00",  "family": "P3",   "lambda": 1.00},
+      {"name": "P4_lam0.25",  "family": "P4",   "lambda": 0.25},
+      {"name": "P4_lam0.50",  "family": "P4",   "lambda": 0.50},
+      {"name": "P4_lam0.75",  "family": "P4",   "lambda": 0.75},
+      {"name": "P4_lam1.00",  "family": "P4",   "lambda": 1.00},
+      {"name": "P5_lam0.25",  "family": "P5",   "lambda": 0.25},
+      {"name": "P5_lam0.50",  "family": "P5",   "lambda": 0.50},
+      {"name": "P5_lam0.75",  "family": "P5",   "lambda": 0.75},
+      {"name": "P5_lam1.00",  "family": "P5",   "lambda": 1.00}
+    ],
+    "attacks": [
+      {
+        "duration": 0,
+        "intensities": ["medium"]
+      },
+      {
+        "duration": 20,
+        "attack_start_delay_min": 20,
+        "attack_start_delay_max": 300,
+        "intensities": ["medium"]
+      },
+      {
+        "duration": 100,
+        "attack_start_delay_min": 20,
+        "attack_start_delay_max": 300,
+        "intensities": ["medium"]
+      },
+      {
+        "duration": 300,
+        "attack_start_delay_min": 20,
+        "attack_start_delay_max": 300,
+        "intensities": ["medium"]
+      }
+    ],
+    "collect": {
+      "tep_signals": true,
+      "tep_alarm_events": true,
+      "tep_controller_mv_commands": true,
+      "container_logs": true
+    },
+    "phases": [
+      {
+        "name": "phase1_clean_benign",
+        "description": "Clean benign (no attack, no perturbation) — training and calibration",
+        "iterations": 3,
+        "seed_offset": 0,
+        "perturbation_profiles": [
+          {"name": "none", "family": "none", "lambda": 0.0}
+        ],
+        "attacks": [
+          {"duration": 0}
+        ]
+      },
+      {
+        "name": "phase2_clean_attacked",
+        "description": "Clean attacked (no perturbation) — nominal attack-detection baseline",
+        "iterations": 3,
+        "seed_offset": 0,
+        "perturbation_profiles": [
+          {"name": "none", "family": "none", "lambda": 0.0}
+        ],
+        "attacks": [
+          {"duration": 20, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]},
+          {"duration": 100, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]},
+          {"duration": 300, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]}
+        ]
+      },
+      {
+        "name": "phase3_perturbed_benign",
+        "description": "Perturbed benign (no attack) — false-alarm robustness per family/severity",
+        "iterations": 3,
+        "seed_offset": 100000,
+        "perturbation_profiles": [
+          {"name": "P1_lam0.50", "family": "P1", "lambda": 0.50},
+          {"name": "P1_lam1.00", "family": "P1", "lambda": 1.00},
+          {"name": "P2_lam0.50", "family": "P2", "lambda": 0.50},
+          {"name": "P2_lam1.00", "family": "P2", "lambda": 1.00},
+          {"name": "P3_lam0.50", "family": "P3", "lambda": 0.50},
+          {"name": "P3_lam1.00", "family": "P3", "lambda": 1.00},
+          {"name": "P4_lam0.50", "family": "P4", "lambda": 0.50},
+          {"name": "P4_lam1.00", "family": "P4", "lambda": 1.00},
+          {"name": "P5_lam0.50", "family": "P5", "lambda": 0.50},
+          {"name": "P5_lam1.00", "family": "P5", "lambda": 1.00}
+        ],
+        "attacks": [
+          {"duration": 0}
+        ]
+      },
+      {
+        "name": "phase4_perturbed_attacked",
+        "description": "Perturbed attacked — main robustness curves (one perturbation family at a time)",
+        "iterations": 3,
+        "seed_offset": 200000,
+        "perturbation_profiles": [
+          {"name": "P1_lam0.50", "family": "P1", "lambda": 0.50},
+          {"name": "P1_lam1.00", "family": "P1", "lambda": 1.00},
+          {"name": "P2_lam0.50", "family": "P2", "lambda": 0.50},
+          {"name": "P2_lam1.00", "family": "P2", "lambda": 1.00},
+          {"name": "P3_lam0.50", "family": "P3", "lambda": 0.50},
+          {"name": "P3_lam1.00", "family": "P3", "lambda": 1.00},
+          {"name": "P4_lam0.50", "family": "P4", "lambda": 0.50},
+          {"name": "P4_lam1.00", "family": "P4", "lambda": 1.00},
+          {"name": "P5_lam0.50", "family": "P5", "lambda": 0.50},
+          {"name": "P5_lam1.00", "family": "P5", "lambda": 1.00}
+        ],
+        "attacks": [
+          {"duration": 20, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]},
+          {"duration": 100, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]},
+          {"duration": 300, "attack_start_delay_min": 20, "attack_start_delay_max": 300, "intensities": ["medium"]}
+        ]
+      }
+    ]
+  },
+  "tep_controller": {
+    "telemetryMeasurement": "tep_signals",
+    "alarmStateMeasurement": "tep_alarm_state",
+    "alarmEventMeasurement": "tep_alarm_events",
+    "alarmConfigMeasurement": "tep_alarm_config",
+    "commandMeasurement": "tep_controller_mv_commands",
+    "intervalSeconds": 1.0
+  },
+  "tep_process": {
+    "seed": 10871,
+    "realtimeScale": 1.0,
+    "rates": {
+      "pressurePeriod": 1.0,
+      "flowPeriodMin": 1.0,
+      "flowPeriodMax": 2.0,
+      "levelPeriodMin": 2.0,
+      "levelPeriodMax": 5.0,
+      "temperaturePeriodMin": 5.0,
+      "temperaturePeriodMax": 10.0,
+      "mvPeriod": 1.0,
+      "compositionPeriodMin": 360.0,
+      "compositionPeriodMax": 900.0,
+      "compositionDeadTime": 120.0
+    },
+    "influxdb": {
+      "measurement": "tep_signals",
+      "eventMeasurement": "tep_alarm_events"
+    },
+    "perturbations": {
+        "silentSensors": [
+          "pv_015_analyzer_sample_flow_1",
+          "pv_016_analyzer_sample_flow_2",
+          "pv_045_analyzer_house_temp",
+          "pv_050_ambient_temp"
+        ],
+        "downsamplePVs": [
+          "pv_001_feed_flow",
+          "pv_002_recycle_flow"
+        ],
+        "seedOffset": 1921
+    }
+  }
+}

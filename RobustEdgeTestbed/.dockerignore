@@ -1,0 +1,22 @@
+# VCS and editor metadata
+.git
+.gitignore
+.vscode
+
+# Local Python environments and caches
+.venv
+**/__pycache__
+*.pyc
+
+# Build and packaging artifacts
+build
+dist
+*.egg-info
+
+# Runtime outputs
+logs
+sockets
+
+# Local env files
+.env
+.env.*

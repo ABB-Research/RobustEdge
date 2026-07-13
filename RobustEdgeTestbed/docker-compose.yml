@@ -1,0 +1,165 @@
+x-influx-common-env: &influx-common-env
+  INFLUXDB_HOST: ${INFLUXDB_HOST:-influxdb}
+  INFLUXDB_PORT: ${INFLUXDB_PORT:-8086}
+  INFLUXDB_DB: ${INFLUXDB_DB:-appdb}
+  INFLUXDB_ADMIN_USER: ${INFLUXDB_ADMIN_USER:-admin}
+  INFLUXDB_ADMIN_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-change_me_admin_password}
+
+services:
+  tep-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simstack
+    container_name: tep-simulator
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      <<: *influx-common-env
+      TEP_ENABLE_PERTURBATIONS: ${TEP_ENABLE_PERTURBATIONS:-0}
+      TEP_PERTURBATION_PROFILE: ${TEP_PERTURBATION_PROFILE:-moderate}
+      TEP_SILENT_SENSORS: ${TEP_SILENT_SENSORS:-}
+      TEP_REALTIME_SCALE: ${TEP_REALTIME_SCALE:-1.0}
+      TEP_PERTURBATION_FAMILY: ${TEP_PERTURBATION_FAMILY:-none}
+      TEP_PERTURBATION_LAMBDA: ${TEP_PERTURBATION_LAMBDA:-0.0}
+      TEP_P4_OUTAGE_START: ${TEP_P4_OUTAGE_START:-}
+      TEP_PERTURBATION_SEED: ${TEP_PERTURBATION_SEED:-}
+      MV_SERVER_UNIX: /sockets/mv.sock
+      PV_TELEMETRY_UNIX: /sockets/pv.sock
+    command:
+      - sh
+      - -lc
+      - |
+        set -e
+        EXTRA=""
+        if [ "$${TEP_PERTURBATION_FAMILY:-none}" != "none" ]; then
+          EXTRA="--perturbation-family $${TEP_PERTURBATION_FAMILY} --perturbation-lambda $${TEP_PERTURBATION_LAMBDA:-0.0}"
+          if [ "$${TEP_PERTURBATION_FAMILY}" = "P4" ] && [ -n "$${TEP_P4_OUTAGE_START:-}" ]; then
+            EXTRA="$$EXTRA --p4-outage-start $${TEP_P4_OUTAGE_START}"
+          fi
+          if [ -n "$${TEP_PERTURBATION_SEED:-}" ]; then
+            EXTRA="$$EXTRA --perturbation-seed $${TEP_PERTURBATION_SEED}"
+          fi
+        elif [ "$${TEP_ENABLE_PERTURBATIONS:-0}" = "1" ]; then
+          EXTRA="--perturbation-profile $${TEP_PERTURBATION_PROFILE:-moderate}"
+          if [ -n "$${TEP_SILENT_SENSORS:-}" ]; then
+            EXTRA="$$EXTRA --silent-sensors $${TEP_SILENT_SENSORS}"
+          fi
+        fi
+        if [ -n "$${TEP_RUN_DURATION:-}" ]; then
+          ARG="--duration $${TEP_RUN_DURATION}"
+        else
+          ARG="--run-forever"
+        fi
+        python3 -u -m simulator.tep_process $$ARG \
+          --realtime \
+          --realtime-scale $${TEP_REALTIME_SCALE:-1.0} \
+          --measurements-out /tmp/tep_measurements.jsonl \
+          --alarm-events-out /tmp/tep_alarm_events.jsonl \
+          --influxdb-output \
+          --influxdb-host $${INFLUXDB_HOST:-influxdb} \
+          --influxdb-port $${INFLUXDB_PORT:-8086} \
+          --influxdb-database $${INFLUXDB_DB:-appdb} \
+          --influxdb-username $${INFLUXDB_ADMIN_USER:-admin} \
+          --influxdb-password $${INFLUXDB_ADMIN_PASSWORD:-change_me_admin_password} \
+          --influxdb-measurement tep_signals \
+          --influxdb-event-measurement tep_alarm_events \
+          --mv-server-unix /sockets/mv.sock \
+          --pv-telemetry-unix /sockets/pv.sock \
+          $$EXTRA
+    volumes:
+      - ./sockets:/sockets
+
+  controller:
+    build:
+      context: .
+      dockerfile: Dockerfile.simstack
+    container_name: controller
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      tep-simulator:
+        condition: service_started
+    environment:
+      <<: *influx-common-env
+      TEP_TELEMETRY_MEASUREMENT: tep_signals
+      TEP_ALARM_STATE_MEASUREMENT: tep_alarm_state
+      TEP_ALARM_EVENT_MEASUREMENT: tep_alarm_events
+      TEP_COMMAND_MEASUREMENT: tep_controller_mv_commands
+      TEP_CONTROLLER_INTERVAL: 1.0
+      MV_SERVER_UNIX: /sockets/mv.sock
+      PV_TELEMETRY_UNIX: /sockets/pv.sock
+    command: ["python3", "-u", "-m", "simulator.tep_controller.controller"]
+    volumes:
+      - ./sockets:/sockets
+
+  attack-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.simstack
+    container_name: attack-runner
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      <<: *influx-common-env
+      ATTACK_DURATION: ${ATTACK_DURATION:-20}
+      ATTACK_INTENSITY: ${ATTACK_INTENSITY:-medium}
+      ATTACK_PPS: ${ATTACK_PPS:-0}
+      ATTACK_BURST_VALUE: ${ATTACK_BURST_VALUE:-0}
+      ATTACK_MEASUREMENT: ${ATTACK_MEASUREMENT:-attack_records}
+      ATTACK_TAG: ${ATTACK_TAG:-host}
+    command: ["python3", "-u", "/app/scripts/run_attack_agent.py"]
+
+  influxdb:
+    image: influxdb:1.7.5
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      INFLUXDB_DB: ${INFLUXDB_DB:-appdb}
+      INFLUXDB_ADMIN_ENABLED: "true"
+      INFLUXDB_ADMIN_USER: ${INFLUXDB_ADMIN_USER:-admin}
+      INFLUXDB_ADMIN_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-change_me_admin_password}
+      INFLUXDB_HTTP_AUTH_ENABLED: "true"
+      INFLUXDB_USER: ${INFLUXDB_USER:-appuser}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD:-appuserpw}
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "influx -username \"$$INFLUXDB_ADMIN_USER\" -password \"$$INFLUXDB_ADMIN_PASSWORD\" -execute 'SHOW DATABASES'",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana-oss:10.4.2
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      <<: *influx-common-env
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    env_file:
+      - .env
+
+volumes:
+  influxdb-data:
+  grafana-data:
