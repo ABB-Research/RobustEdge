@@ -1,6 +1,8 @@
 # RobustEdgeTestbed
 
-This repository contains code to generate the data used in the paper "Robustness Benchmarking of ML-Based Container Attack Detection with a Perturbation-Driven Industrial Edge Testbed", Manca et al., EFTA 2026.
+This repository contains code to generate the data used in the paper "Perturbation-Driven Robustness Benchmarking of
+ML-Based Detection of Database Write Attacks at
+the Industrial Edge", Manca et al., EFTA 2026.
 
 RobustEdgeTestbed is an open research platform and testbed for generating labeled industrial control system (ICS) telemetry under cyberattack conditions. It combines a Tennessee Eastman Process (TEP) simulator, closed-loop controller, attack agent, InfluxDB, and Grafana to produce reproducible datasets for detection research and system analysis.
 
@@ -170,7 +172,9 @@ If you use this project in your research, please cite:
 
 ```
 @inproceedings{robustedge2026,
-  title = {Robustness Benchmarking of ML-Based Container Attack Detection with a Perturbation-Driven Industrial Edge Testbed},
+  title = {Perturbation-Driven Robustness Benchmarking of
+ML-Based Detection of Database Write Attacks at
+the Industrial Edge},
   author = {Manca, Gianluca and Maag, Balz and Sivanthi, Thanikesavan and Guo, Shuai and Sommer, Philipp and Fay, Alexander},
   booktitle = {2026 IEEE 31st International Conference on Emerging Technologies and Factory Automation (ETFA)},
   year = {2026}

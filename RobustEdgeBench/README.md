@@ -492,12 +492,15 @@ The source code, benchmark configuration files, analysis pipeline, and generated
 
 ## Recommended citation
 
-A formal citation will be added after publication. For now, please cite the corresponding ETFA 2026 paper draft:
-
-```text
-G. Manca et al.,
-"Robustness Benchmarking of ML-Based Container Attack Detection with a Perturbation-Driven Industrial Edge Testbed,"
-submitted to IEEE ETFA 2026.
+```
+@inproceedings{robustedge2026,
+  title = {Perturbation-Driven Robustness Benchmarking of
+ML-Based Detection of Database Write Attacks at
+the Industrial Edge},
+  author = {Manca, Gianluca and Maag, Balz and Sivanthi, Thanikesavan and Guo, Shuai and Sommer, Philipp and Fay, Alexander},
+  booktitle = {2026 IEEE 31st International Conference on Emerging Technologies and Factory Automation (ETFA)},
+  year = {2026}
+}
 ```
 
 ---
