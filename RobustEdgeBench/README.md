@@ -494,9 +494,7 @@ The source code, benchmark configuration files, analysis pipeline, and generated
 
 ```
 @inproceedings{robustedge2026,
-  title = {Perturbation-Driven Robustness Benchmarking of
-ML-Based Detection of Database Write Attacks at
-the Industrial Edge},
+  title = {Perturbation-Driven Robustness Benchmarking of ML-Based Detection of Database Write Attacks at the Industrial Edge},
   author = {Manca, Gianluca and Maag, Balz and Sivanthi, Thanikesavan and Guo, Shuai and Sommer, Philipp and Fay, Alexander},
   booktitle = {2026 IEEE 31st International Conference on Emerging Technologies and Factory Automation (ETFA)},
   year = {2026}
